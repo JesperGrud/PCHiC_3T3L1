@@ -1,6 +1,7 @@
 # Figure 3
 
-[Figure 3A - Enrichment of dynamic interactions at dynamic genes by distance](../Scripts/Fig3A_Interaction_Gene_Distance.md)<br>
-[Figure 3B - RNA cluster profiles](../Scripts/Fig3B_RNA_Clusters_Profiles.md)<br>
-[Figure 3B - Enrichment of interactions by hue at the RNA clusters](../Scripts/Fig3B_RNA_Clusters_Interaction_Enrichment.md)<br>
+[Figure 3A - The dynamics of promoter-based interactions](../Scripts/Fig3A_Number_Dynamic_Interactions.md)<br>
+[Figure 3C - Distrubtion of hues and log2 fold changes of interactions](../Scripts/Fig3C_Interaction_Hues.md)<br>
+[Figure 3D - Example of gene with transient induced interactions](../Scripts/Fig3D_Example_Id2.md)<br>
+[Figure 3E - Example of gene with late induced interactions](../Scripts/Fig3E_Example_Fabp4.md)<br>
 [Back](../README.md)

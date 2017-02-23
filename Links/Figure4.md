@@ -1,8 +1,8 @@
 # Figure 4
 
-[Figure 4A - Superenhancer cluster profiles](../Scripts/Fig4A_Superenhancer_Cluster_Profiles.md)<br>
-[Figure 4B - Temporal calls of superenhancers](../Scripts/Fig4B_Superenhancer_Temporal_Calls.md)<br>
-[Figure 4C - Enrichment of transcription factors by hue at the superenhancer clusters](../Scripts/Fig4C_Superenhancer_Transcription_Factor_Enrichment.md)<br>
-[Figure 4D - Enrichment of interactions by hue at the superenhancer clusters](../Scripts/Fig4D_Superenhancer_Interaction_Enrichment.md)<br>
-[Figure 4E - Expression of genes connected to superenhancer constituents by cluster](../Scripts/Fig4E_Superenhancer_Gene_Expression.md)<br>
+[Figure 4A - Analysis of interaction versus gene dynamics](../Scripts/Fig4A_Interaction_Gene_Distance.md)<br>
+[Figure 4B - Cluster profiles of gene expression data](../Scripts/Fig4B_RNA_ClusterProfiles.md)<br>
+[Figure 4C - Hue-based enrichment analysis of interactions at gene clusters](../Scripts/Fig4C_RNA_ClusterEnrichment.md)<br>
+[Figure 4D - Examples: Gene expression data](../Scripts/Fig4D_Examples_GeneExpression.md)<br>
+[Figure 4E - Examples: Interactions](../Scripts/Fig4E_Examples_Interactions.md)<br>
 [Back](../README.md)

@@ -1,7 +1,7 @@
 ```R
 ## Identify TADs and boundary regions
 # Import the data
-Zero <- read.table("Data/Interactions/TADs/D0.DI", quote="\"", comment.char="", skip=1)
+Zero <- read.table("Data/Interactions/TADs//D0.DI", quote="\"", comment.char="", skip=1)
 
 ## Call TADs on sDI
 # Convert sDI to z-scores
@@ -1127,8 +1127,134 @@ Cortex_Bounds <- Bounds
 ## Clean up
 rm(list=setdiff(ls(),c("Zero_TADs","Four_TADs","Two_TADs","ESC_TADs","Cortex_TADs","Zero_Bounds","Four_Bounds","Two_Bounds","ESC_Bounds","Cortex_Bounds")))
 
-# Plot the number of TADs (NumberTADs.pdf)
-barplot(c(nrow(Zero_TADs), nrow(Four_TADs), nrow(Two_TADs), nrow(ESC_TADs), nrow(Cortex_TADs)), las=1, ylab="Number of TADs",names=c("D0","4h","D2","ESC","Cortex"), col=c("green3","green3","green3","orange","blue3"))
+## Import data and convert to Z-scores
+# D0
+Zero <- read.table("C:/Users/jgsm/Desktop/D0.DI", quote="\"", comment.char="", skip=1)
+Mean <- mean(Zero$V4)
+SD <- sd(Zero$V4)
+Zero$V4 <- (Zero$V4 - Mean)/SD
+rm(Mean)
+rm(SD)
+
+# H4
+Four <- read.table("C:/Users/jgsm/Desktop/H4.DI", quote="\"", comment.char="", skip=1)
+Mean <- mean(Four$V4)
+SD <- sd(Four$V4)
+Four$V4 <- (Four$V4 - Mean)/SD
+rm(Mean)
+rm(SD)
+
+# D2
+Two <- read.table("C:/Users/jgsm/Desktop/D2.DI", quote="\"", comment.char="", skip=1)
+Mean <- mean(Two$V4)
+SD <- sd(Two$V4)
+Two$V4 <- (Two$V4 - Mean)/SD
+rm(Mean)
+rm(SD)
+
+# ESC
+ESC <- read.table("C:/Users/jgsm/Desktop/ESC.DI", quote="\"", comment.char="", skip=1)
+Mean <- mean(ESC$V4)
+SD <- sd(ESC$V4)
+ESC$V4 <- (ESC$V4 - Mean)/SD
+rm(Mean)
+rm(SD)
+
+# Cortex
+Cortex <- read.table("C:/Users/jgsm/Desktop/Cortex.DI", quote="\"", comment.char="", skip=1)
+Mean <- mean(Cortex$V4)
+SD <- sd(Cortex$V4)
+Cortex$V4 <- (Cortex$V4 - Mean)/SD
+rm(Mean)
+rm(SD)
+
+### Overlap boundaries and group by identification of T1 boundary
+## Combine all boundaries
+Bounds <- rbind(Zero_Bounds, Four_Bounds, Two_Bounds, ESC_Bounds, Cortex_Bounds)
+
+## Filter boundaries within +/- 25 kb
+# Setup
+Bounds <- Bounds[ order(Bounds$chr, Bounds$boundary),]
+Bounds$Region <- 0
+Counter <- 1
+Bounds$ID <- seq(1, nrow(Bounds), by = 1)
+
+# Loop
+for (i in 1:nrow(Bounds)) {
+  Bounds[i,"Region"] <- Counter
+  CurrChr <- Bounds[i,1]
+  CurrBoundary <- Bounds[i,2]
+  CurrID <- Bounds[i,4]
+  Tmp <- Bounds[ Bounds$chr == CurrChr & abs(Bounds$boundary - CurrBoundary) <= 25000,]
+  if (max(Tmp$ID) == CurrID) { Counter <- Counter + 1 }
+}
+
+# Keep center of each region
+Bounds$Collaps <- paste(Bounds$chr, Bounds$boundary, Bounds$Region, sep="-")
+Bounds <- Bounds[ duplicated(Bounds$Collaps)==F,]
+Center <- aggregate(Bounds$boundary, by=list(Bounds$Region), FUN="mean")
+colnames(Center) <- c("Region","boundary")
+Bounds <- merge(Bounds, Center, by="Region")
+Bounds <- Bounds[ duplicated(Bounds$Region)==F,]
+Bounds <- Bounds[,c(2,6)]
+colnames(Bounds) <- c("chr","boundary")
+
+### Group by cell-type boundaries
+## Combine 3T3-L1 T1s
+T3_Bounds <- rbind(Zero_Bounds,Four_Bounds,Two_Bounds)
+
+## Group IDs:
+# Group 1 == 3T3-L1
+# Group 2 == ESC 
+# Group 3 == Cortex 
+# Group 23 == ESC + Cortex
+# Group 12 == 3T3-L1 + ESC
+# Group 13 == 3T3-L1 + Cortex
+# Group 123 == 3T3-L1 + ESC + Cortex
+Bounds$Group <- 0
+
+for (i in 1:nrow(Bounds)) {
+  CurrChr <- Bounds[i,1]
+  CurrBoundary <- Bounds[i,2]
+  TestT3 <- T3_Bounds[ T3_Bounds$chr == CurrChr,]
+  TestT3 <- TestT3[ abs(TestT3$boundary - CurrBoundary) <= 50000,]
+  TestESC <- ESC_Bounds[ ESC_Bounds$chr == CurrChr,]
+  TestESC <- TestESC[ abs(TestESC$boundary - CurrBoundary) <= 50000,]
+  TestCortex <- Cortex_Bounds[ Cortex_Bounds$chr == CurrChr,]
+  TestCortex <- TestCortex[ abs(TestCortex$boundary - CurrBoundary) <= 50000,]
+  if (nrow(TestT3) > 0 & nrow(TestCortex) == 0 & nrow(TestESC) == 0) { Bounds[i,"Group"] <- 1 }
+  if (nrow(TestT3) == 0 & nrow(TestCortex) == 0 & nrow(TestESC) > 0) { Bounds[i,"Group"] <- 2 }
+  if (nrow(TestT3) == 0 & nrow(TestCortex) > 0 & nrow(TestESC) == 0) { Bounds[i,"Group"] <- 3 }
+  if (nrow(TestT3) == 0 & nrow(TestCortex) > 0 & nrow(TestESC) > 0) { Bounds[i,"Group"] <- 23 }
+  if (nrow(TestT3) > 0 & nrow(TestCortex) == 0 & nrow(TestESC) > 0) { Bounds[i,"Group"] <- 12 }
+  if (nrow(TestT3) > 0 & nrow(TestCortex) > 0 & nrow(TestESC) == 0) { Bounds[i,"Group"] <- 13 }
+  if (nrow(TestT3) > 0 & nrow(TestCortex) > 0 & nrow(TestESC) > 0) { Bounds[i,"Group"] <- 123 }
+}
+
+## Clean up
+rm(list=setdiff(ls(),c("Zero_TADs","Four_TADs","Two_TADs","ESC_TADs","Cortex_TADs","Zero_Bounds","Four_Bounds","Two_Bounds","ESC_Bounds","Cortex_Bounds","Bounds","Zero","Four","Two","ESC","Cortex")))
+
+# Get the numbers for the Venn diagram (Produced with Venn diagram plotter):
+# A = 3T3-L1
+nrow(Bounds[ Bounds$Group == 1 | Bounds$Group == 12 | Bounds$Group == 13 | Bounds$Group == 123,])
+
+# B = ESC
+nrow(Bounds[ Bounds$Group == 2 | Bounds$Group == 12 | Bounds$Group == 23 | Bounds$Group == 123,])
+
+# C = Cortex
+nrow(Bounds[ Bounds$Group == 3 | Bounds$Group == 13 | Bounds$Group == 23 | Bounds$Group == 123,])
+
+# A/B
+nrow(Bounds[ Bounds$Group == 12,])
+
+# B/C
+nrow(Bounds[ Bounds$Group == 23,])
+
+# A/C
+nrow(Bounds[ Bounds$Group == 13,])
+
+# Overlaps all 3
+nrow(Bounds[ Bounds$Group == 123,])
 ```
 
 [Back to start](../README.md)<br>
