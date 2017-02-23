@@ -51,12 +51,12 @@ Counts$P300_logFC <- log2(((Counts[,12]+0.25) / (Counts[,13]+0.25)))
 Counts$H3K27ac_logFC <- log2(((Counts[,14]+0.25) / (Counts[,15]+0.25)))
 
 # Get the max occupancy for each factor across time points
-CorMatrix[1,i] <- cor(Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,4] >= 20 | Counts[,5] >= 20),"logFC"], Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,4] >= 20 | Counts[,5] >= 20),"HDAC2_logFC"])
-CorMatrix[2,i] <- cor(Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,6] >= 20 | Counts[,7] >= 20),"logFC"], Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,6] >= 20 | Counts[,7] >= 20),"HDAC3_logFC"])
-CorMatrix[3,i] <- cor(Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,8] >= 20 | Counts[,9] >= 20),"logFC"], Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,8] >= 20 | Counts[,9] >= 20),"NCoR_logFC"])
-CorMatrix[4,i] <- cor(Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,10] >= 20 | Counts[,11] >= 20),"logFC"], Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,10] >= 20 | Counts[,11] >= 20),"MED1_logFC"])
-CorMatrix[5,i] <- cor(Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,12] >= 20 | Counts[,13] >= 20),"logFC"], Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,12] >= 20 | Counts[,13] >= 20),"P300_logFC"])
-CorMatrix[6,i] <- cor(Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,14] >= 20 | Counts[,15] >= 20),"logFC"], Counts[ (Counts[,2] >= 20 | Counts[,3] >= 20) & (Counts[,14] >= 20 | Counts[,15] >= 20),"H3K27ac_logFC"])
+CorMatrix[1,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,4] >= 30 | Counts[,5] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,4] >= 30 | Counts[,5] >= 30),"HDAC2_logFC"])
+CorMatrix[2,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,6] >= 30 | Counts[,7] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,6] >= 30 | Counts[,7] >= 30),"HDAC3_logFC"])
+CorMatrix[3,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,8] >= 30 | Counts[,9] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,8] >= 30 | Counts[,9] >= 30),"NCoR_logFC"])
+CorMatrix[4,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,10] >= 30 | Counts[,11] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,10] >= 30 | Counts[,11] >= 30),"MED1_logFC"])
+CorMatrix[5,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts,3] >= 30) & (Counts[,12] >= 30 | Counts[,13] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,12] >= 30 | Counts[,13] >= 30),"P300_logFC"])
+CorMatrix[6,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,14] >= 30 | Counts[,15] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,14] >= 30 | Counts[,15] >= 30),"H3K27ac_logFC"])
 
 # Set the colnames
 colnames(CorMatrix)[i] <- Factor
