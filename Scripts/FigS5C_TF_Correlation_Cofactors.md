@@ -55,7 +55,7 @@ CorMatrix[1,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,4
 CorMatrix[2,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,6] >= 30 | Counts[,7] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,6] >= 30 | Counts[,7] >= 30),"HDAC3_logFC"])
 CorMatrix[3,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,8] >= 30 | Counts[,9] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,8] >= 30 | Counts[,9] >= 30),"NCoR_logFC"])
 CorMatrix[4,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,10] >= 30 | Counts[,11] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,10] >= 30 | Counts[,11] >= 30),"MED1_logFC"])
-CorMatrix[5,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts,3] >= 30) & (Counts[,12] >= 30 | Counts[,13] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,12] >= 30 | Counts[,13] >= 30),"P300_logFC"])
+CorMatrix[5,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,12] >= 30 | Counts[,13] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,12] >= 30 | Counts[,13] >= 30),"P300_logFC"])
 CorMatrix[6,i] <- cor(Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,14] >= 30 | Counts[,15] >= 30),"logFC"], Counts[ (Counts[,2] >= 30 | Counts[,3] >= 30) & (Counts[,14] >= 30 | Counts[,15] >= 30),"H3K27ac_logFC"])
 
 # Set the colnames
