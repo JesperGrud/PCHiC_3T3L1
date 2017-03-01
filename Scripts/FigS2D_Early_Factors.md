@@ -1,8 +1,11 @@
 ```R
-# Load the necessary packages
+## Load the necessary packages
 library(edgeR)
+library(circlize)
+library(DESeq2)
+library(org.Mm.eg.db)
 
-## Process the interaction data
+## Process interactions
 # Import the interactions
 Interactions <- read.delim("Data/Interactions/PCHiC/Interactions.txt", header = T)
 
@@ -110,23 +113,91 @@ FilteredInteractions_Genes$Collaps <- paste(FilteredInteractions_Genes$ID, Filte
 FilteredInteractions_Genes <- FilteredInteractions_Genes[ duplicated(FilteredInteractions_Genes$Collaps)==F,]
 FilteredInteractions_Genes <- FilteredInteractions_Genes[,c(1:41)]
 
-# Keep only interactions within 100kb
-FilteredInteractions_Genes <- FilteredInteractions_Genes[ abs(FilteredInteractions_Genes$dist) <= 100000,]
+## Process RNA-seq data
+# Import RNA-seq data
+RNA <- read.delim("Data/RNAseq/RNA.txt", header=T)
 
-# Grab interactions from early wave factors
-Early <- FilteredInteractions_Genes[ FilteredInteractions_Genes$Symbol %in% c("Cebpb","Cebpd","Vdr","Klf5","Klf4","Fosl2","Fosl1","Jun","Junb","Hmga2"),]
+# Perform differential expression analysis using DESeq2
+MetaData <- data.frame(Condition = c("D0","H4","D1","D2","D7","D0","H4","D1","D2","D7"), Replicate = c(rep("a",5), rep("b",5)))
+rownames(MetaData) <- colnames(RNA)[c(6:15)]
+rownames(RNA) <- RNA$RefSeq
+DGE <- DESeqDataSetFromMatrix(as.matrix(RNA[,c(6:15)]), colData = MetaData, design = ~ Condition)
+DGE <- estimateSizeFactors(DGE)
+DGE <- estimateDispersions(DGE)
+DGE <- nbinomWaldTest(DGE, betaPrior=F)
 
-# Calculate fractions identified at each time point
-Enrichment <- data.frame(matrix(ncol=2, nrow=3))
-Enrichment[1,1] <- nrow(Early[ Early$Zero_Score >= 5,]) / nrow(Early)
-Enrichment[2,1] <- nrow(Early[ Early$Four_Score >= 5,]) / nrow(Early)
-Enrichment[3,1] <- nrow(Early[ Early$Two_Score >= 5,]) / nrow(Early)
-Enrichment[1,2] <- nrow(FilteredInteractions_Genes[ FilteredInteractions_Genes$Zero_Score >= 5,]) / nrow(FilteredInteractions_Genes)
-Enrichment[2,2] <- nrow(FilteredInteractions_Genes[ FilteredInteractions_Genes$Four_Score >= 5,]) / nrow(FilteredInteractions_Genes)
-Enrichment[3,2] <- nrow(FilteredInteractions_Genes[ FilteredInteractions_Genes$Two_Score >= 5,]) / nrow(FilteredInteractions_Genes)
+# Extract p-values and do correction for multiple testing
+Pvalues <- as.matrix(mcols(DGE)[,grep("WaldPvalue_Condition", colnames(mcols(DGE)))])
+Padj <- as.data.frame(apply(as.matrix(Pvalues),2,function(X) {p.adjust(X, method='BH')}))
+colnames(Padj) <- c("Padj_One","Padj_Two","Padj_Seven","Padj_Four")
+Padj$RefSeq <- names(DGE)
 
-# Plot the log2 enrichment
-barplot(log2(Enrichment[,1] / Enrichment[,2]), las=1, ylab="Enrichment of interactions", names=c("D0","4h","D2"))
+# Get variance stabilized data 
+VSD <- as.data.frame(assay(varianceStabilizingTransformation(DGE, blind=F)))
+VSD$RefSeq <- rownames(VSD)
+
+# Merge all of the data and remove NAs (All zero counts)
+RNA <- merge(RNA[,c(1:5)], VSD, by="RefSeq", sort=F)
+RNA <- merge(RNA, Padj, by="RefSeq", sort=F)
+RNA <- na.omit(RNA)
+
+# Calculate mean expression across replicates
+RNA$D0 <- rowMeans(2^RNA[,c("D0_E1","D0_E2")])
+RNA$H4 <- rowMeans(2^RNA[,c("H4_E1","H4_E2")])
+RNA$D1 <- rowMeans(2^RNA[,c("D1_E1","D1_E2")])
+RNA$D2 <- rowMeans(2^RNA[,c("D2_E1","D2_E2")])
+RNA$D7 <- rowMeans(2^RNA[,c("D7_E1","D7_E2")])
+
+# Import transcript length information and merge it
+Lengths <- read.delim("Data/RNAseq/Annotation/Gene.lengths", header=T)
+RNA <- merge(RNA, Lengths, by="RefSeq")
+
+# Normalize RNA-seq counts to txLength
+RNA$D0 <- RNA$D0 / (RNA$txLength/1000)
+RNA$H4 <- RNA$H4 / (RNA$txLength/1000)
+RNA$D1 <- RNA$D1 / (RNA$txLength/1000)
+RNA$D2 <- RNA$D2 / (RNA$txLength/1000)
+RNA$D7 <- RNA$D7 / (RNA$txLength/1000)
+
+# Calculate maximal expression
+RNA$Max <- apply(RNA[,c("D0","H4","D1","D2","D7")],1,FUN="max")
+
+# Extract mapping to official symbols
+Convert <- suppressMessages(select(org.Mm.eg.db, as.character(RNA$RefSeq), columns = c("SYMBOL","REFSEQ"), "REFSEQ"))
+colnames(Convert) <- c("RefSeq","Symbol")
+RNA <- merge(RNA, Convert, by="RefSeq")
+
+## Import list of TFs
+MouseTFs <- read.delim("Data/RNAseq/Annotation/MouseTFs.txt", header=FALSE)
+
+## Define the gene to test
+Gene <- FilteredInteractions_Genes[ FilteredInteractions_Genes$Symbol %in% RNA[ RNA$H4 / RNA$D0 >= 1 & RNA$Padj_Four <= 0.05 & RNA$D2 / RNA$D0 <= 1.1 & RNA$Symbol %in% MouseTFs$V4,"Symbol" ],]
+Gene[ abs(Gene$logFC_max) > 4, "logFC_max"] <- 4
+
+Regulated <- Gene[ abs(Gene$logFC_max) >= log2(1.5),]
+H <- hist(Regulated$H, breaks=seq(-180,180,by=30), plot=F)
+
+# Convert the histogram to a matrix with boundaries for each box for circular plotting
+Histogram <- as.data.frame(matrix(ncol=4, nrow=12))
+Histogram[,1] <- seq(-180,150,by=30)
+Histogram[,2] <- 0
+Histogram[,3] <- seq(-150,180,by=30)
+Histogram[,4] <- H$counts
+
+# Make the plot
+circos.clear()
+circos.par(gap.degree=0, start.degree=-90)
+circos.initialize("A", xlim=c(-179,179))
+circos.trackPlotRegion("A", ylim=c(0,150), track.height=0.2, bg.border="white") 
+circos.lines(c(-180,180), c(0,0), lty=2, lwd=1)
+circos.lines(c(-180,180), c(150,150), lty=2, lwd=1)
+for (i in 1:18) { circos.rect(Histogram[i,1], Histogram[i,2], Histogram[i,3],Histogram[i,4], col="grey") } 
+circos.trackPlotRegion("A", ylim=c(0,4), track.height=0.5, bg.border="white") 
+circos.points(Gene$H, abs(Gene$logFC_max), col = Gene$color, pch=20) 
+circos.lines(c(-180,180), c(0,0), lty=2, lwd=1)
+circos.lines(c(-180,180), c(1,1), lty=2, lwd=1)
+circos.lines(c(-180,180), c(2,2), lty=2, lwd=1)
+circos.lines(c(-180,180), c(3,3), lty=2, lwd=1)
 ```
 
 [Back to start](../README.md)<br>
