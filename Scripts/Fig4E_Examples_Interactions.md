@@ -143,7 +143,7 @@ circos.lines(c(-180,180), c(3,3), lty=2, lwd=1)
 
 
 # Define the gene to test
-Gene <- FilteredInteractions_Genes[ FilteredInteractions_Genes$Symbol == "Hmga2",]
+Gene <- FilteredInteractions_Genes[ FilteredInteractions_Genes$Symbol == "Tbx3",]
 Gene[ abs(Gene$logFC_max) > 4, "logFC_max"] <- 4
 
 Regulated <- Gene[ abs(Gene$logFC_max) >= log2(1.5),]
