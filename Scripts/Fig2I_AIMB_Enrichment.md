@@ -112,34 +112,53 @@ FilteredInteractions_Genes <- FilteredInteractions_Genes[ duplicated(FilteredInt
 FilteredInteractions_Genes <- FilteredInteractions_Genes[,c(1:41)]
 
 ## Import and process allele-specificity results
-Genes <- read.delim("Data/Other/CHT_GeneExpression.result.txt")
+Genes <- read.delim("Data/Other/CHT_GeneExpression.result.txt", header=T)
+Genes <- Genes[ duplicated(paste(Genes$Chr, Genes$Pos,sep="-"))==F,]
 PCHiC <- read.delim("Data/Other/CHT_PCHiC.result.txt", header=F)
 
 ## Cleanup
 rm(list=setdiff(ls(),c("FilteredInteractions_Genes","Genes","PCHiC")))
 
-## Calculate heterozygocity and keep only interactions balanced on input
-Genes$RNA_Genotype <- abs((Genes$RNA_Genotype - 1))
+## Calculate heterozygocity
 Genes$Input_Genotype <- abs((Genes$Input_Genotype - 1))
-#Genes <- Genes[ Genes$Input_Genotype <= 0.3,]
+Genes$RNA_Genotype <- abs((Genes$RNA_Genotype - 1))
 PCHiC$V10 <- abs((PCHiC$V10 - 1))
 PCHiC$V9 <- abs((PCHiC$V9 - 1))
-#PCHiC <- PCHiC[ PCHiC$V9 <= 0.3,]
 
-## Add gene information and interaction information
-PCHiC <- merge(PCHiC, FilteredInteractions_Genes[,c("ID","dist","Symbol")], by.x="V6",by.y="ID")
+
+## Keep only tests of interest for genes
+Genes <- Genes[ order(Genes$RefSeq, Genes$Pval),]
+Genes <- Genes[ duplicated(Genes$RefSeq)==F,]
+Genes <- Genes[ apply(Genes[,c(5:8)], 1, FUN="var") >= 30,]
+
+## Add genes information
 Convert <- suppressMessages(select(org.Mm.eg.db, as.character(Genes$RefSeq), columns = c("SYMBOL","REFSEQ"), "REFSEQ"))
 colnames(Convert) <- c("RefSeq","Symbol")
 Genes <- merge(Genes, Convert, by="RefSeq")
 Genes <- unique(Genes)
 rm(Convert)
 
-## Group the genes by AIMB
-GenesImbalanced <- Genes[ Genes$Pval <= 0.05 ,]
-PCHICImbalanced <- PCHiC[ PCHiC$V3 <= 0.05 ,]
+## Add interaction information
+PCHiC <- merge(PCHiC, FilteredInteractions_Genes[,c("ID","dist","Symbol")], by.x="V6",by.y="ID")
 
-## Collaps interactions to with multiple SNPs single interactions (keep most significant for imbalanced and random for balanced)
+## Keep only tests of interest for interactions
+PCHiC <- PCHiC[ apply(PCHiC[,c(5:8)], 1, FUN="var") >= 30,]
+
+## FDR correct
+PCHiC$V3 <- fdrtool(PCHiC$V3, statistic = "pvalue")$qval
+Genes$Pval <- fdrtool(Genes$Pval, statistic = "pvalue")$qval
+
+## Group the genes by AIMB
+GenesImbalanced <- Genes[ Genes$Pval <= 0.1 ,]
+PCHICImbalanced <- PCHiC[ PCHiC$V3 <= 0.1 ,]
+
+## Collaps interactions to with multiple SNPs single interactions (keep most significant for imbalanced)
 PCHICImbalanced$snpID <- paste(PCHICImbalanced[,1], PCHICImbalanced$Symbol, sep="-")
+PCHICImbalanced <- PCHICImbalanced[ order(PCHICImbalanced$snpID, PCHICImbalanced$V3),]
+PCHICImbalanced <- PCHICImbalanced[ duplicated(PCHICImbalanced$snpID)==F,]
+
+## Collaps SNPs that connect multiple times to same gene
+PCHICImbalanced$snpID <- paste(PCHICImbalanced[,3], PCHICImbalanced$Symbol, sep="-")
 PCHICImbalanced <- PCHICImbalanced[ order(PCHICImbalanced$snpID, PCHICImbalanced$V3),]
 PCHICImbalanced <- PCHICImbalanced[ duplicated(PCHICImbalanced$snpID)==F,]
 
@@ -163,14 +182,15 @@ for (q in 1:100) {
 	
 	# Save the fraction of connected to imbalanced genes
 	Results[q,1] <- nrow(RandomAll[ RandomAll[,1] %in% GenesImbalanced$Symbol,])/nrow(RandomAll)
+	print(q)
 }
 
 # Calcualte the results from the imbalanced interactions
 AIMB <- nrow(PCHICImbalanced[ PCHICImbalanced$Symbol %in% GenesImbalanced$Symbol,])/nrow(PCHICImbalanced)
 
 # Plot the results
-B <- barplot(c(AIMB, mean(Results[,3]), mean(Results[,1])), beside = T, las=1, ylim=c(0,0.1), col=c("green3","grey"), ylab="Fraction connected to imbalanced gene")
-arrows(B, c(0,mean(Results[,3])+sd(Results[,3]),mean(Results[,1])+sd(Results[,1])), B, c(0,mean(Results[,3])-sd(Results[,3]),mean(Results[,1])-sd(Results[,1])), lwd = 1.5, angle = 90, code = 3, length = 0.05)
+B <- barplot(c(AIMB, mean(Results[,1])), beside = T, las=1, ylim=c(0,0.15), col=c("green3","grey"), ylab="Fraction connected to imbalanced gene")
+arrows(B, c(0,mean(Results[,1])+sd(Results[,1])), B,c(0,mean(Results[,1])-sd(Results[,1])), lwd = 1.5, angle = 90, code = 3, length = 0.05)
 ```
 
 [Back to start](../README.md)<br>
