@@ -5,6 +5,7 @@ library(org.Mm.eg.db)
 library(edgeR)
 library(circlize)
 library(e1071)
+library(fdrtools)
 
 ## Process RNA-seq data
 # Import RNA-seq data
@@ -20,7 +21,7 @@ DGE <- estimateDispersions(DGE)
 DGE <- nbinomWaldTest(DGE, betaPrior=F)
 
 # Extract p-values and do correction for multiple testing
-Pvalues <- as.matrix(mcols(DGE)[,grep("WaldPvalue_Condition", colnames(mcols(DGE)))])
+Pvalues <- as.matrix(as.data.frame(mcols(DGE)[,grep("WaldPvalue_Condition", colnames(mcols(DGE)))]))
 Padj <- as.data.frame(apply(as.matrix(Pvalues),2,function(X) {p.adjust(X, method='BH')}))
 colnames(Padj) <- c("Padj_One","Padj_Two","Padj_Seven","Padj_Four")
 Padj$RefSeq <- names(DGE)
@@ -361,9 +362,14 @@ for (cluster in 1:7) {
 	 }
 }
 
+# Perform FDR correction
+for (i in 1:7) {
+PBinom[i,] <- fdrtool(as.vector(as.matrix(PBinom[i,])), statistic = "pvalue", plot=F, verbose=F)$qval
+}
+
 # Plot the enrichments for cluster 1 to 3
 par(mfcol=c(1,3))
-Limits <- c(1,1,1,1,1,1,1)
+Limits <- c(1,1,1)
 for (cluster in 1:3) {
 # Define axis limits
 Min=-1 * Limits[cluster]
