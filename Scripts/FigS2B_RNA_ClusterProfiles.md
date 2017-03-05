@@ -2,7 +2,10 @@
 # Load libraries
 library(DESeq2)
 library(org.Mm.eg.db)
+library(edgeR)
+library(circlize)
 library(e1071)
+library(fdrtool)
 
 ## Process RNA-seq data
 # Import RNA-seq data
@@ -173,20 +176,232 @@ RNA[ RNA$Cluster == 14, "Cluster"] <- 5
 RNA[ RNA$Cluster == 15, "Cluster"] <- 6
 RNA[ RNA$Cluster == 16, "Cluster"] <- 7
 
-# Plot the line plots for all clusters
+# Calculate the hue for each gene
+RNA$V <- apply(RNA[,c("D0","H4","D2")],1,FUN="max")
+
+# Calculate the S values
+RNA$Minimum <- apply(RNA[,c("D0","H4","D2")],1,FUN="min")
+RNA$S <- 1 - (RNA$Minimum / RNA$V)
+
+# Calculate the H values 
+RNA$H <- RNA$D0 + RNA$H4 - RNA$D2 - RNA$V
+RNA$H <- RNA$H / (RNA$V * RNA$S)
+RNA$H <- RNA$H + 2
+RNA$H <- RNA$H * sign(RNA$H4 - RNA$D0)
+RNA$H <- RNA$H * 60
+
+# Extract mapping to official symbols
+Convert <- suppressMessages(select(org.Mm.eg.db, as.character(RNA$RefSeq), columns = c("SYMBOL","REFSEQ"), "REFSEQ"))
+colnames(Convert) <- c("RefSeq","Symbol")
+RNA <- merge(RNA, Convert, by="RefSeq")
+
+## Process PCHiC data
+# Import the interactions
+Interactions <- read.delim("Data/Interactions/PCHiC/Interactions.txt", header = T)
+
+# Remove interactions from or to blacklisted fragments
+Blacklist <- read.delim("Data/Interactions/PCHiC/Annotation/Blacklisted_Fragments.txt", header=F)
+FilteredInteractions <- Interactions[ !(Interactions$oeID %in% Blacklist[,1]),]
+FilteredInteractions <- FilteredInteractions[ !(FilteredInteractions$baitID %in% Blacklist[,1]),]
+
+# Filter away interactions in trans
+FilteredInteractions <- FilteredInteractions[ FilteredInteractions$oeChr == FilteredInteractions$baitChr,]
+
+# Filter away interactions spanning more than 1 megabase
+FilteredInteractions <- FilteredInteractions[ abs(FilteredInteractions$dist) <= 1000000,]
+
+# Remove baited fragments that are not genes, but ultra-conserved elements
+UCE <- read.delim("Data/Interactions/PCHiC/Annotation/UCE_Fragments.txt", header=F)
+FilteredInteractions <- FilteredInteractions[ !(FilteredInteractions$baitID %in% UCE[,1]),]
+
+# Remove non-baited fragments that contain any type of gene
+Genes <- read.delim("Data/Interactions/PCHiC/Annotation/Genes_Fragments.txt", header=T)
+FilteredInteractions <- FilteredInteractions[ !(FilteredInteractions$oeID %in% Genes$Fragment),] 
+
+# Remove baited fragments that does not contain a protein-coding gene
+Genes <- Genes[ Genes$Type == "protein_coding",]
+FilteredInteractions <- FilteredInteractions[ FilteredInteractions$baitID %in% Genes$Fragment,] 
+
+# Normalize the read counts using edgeR
+rownames(FilteredInteractions) <- FilteredInteractions$ID
+D <- DGEList(as.matrix(FilteredInteractions[,c("Zero_R","Four_R","Two_R")]))
+D <- calcNormFactors(D)
+Normalized_Counts <- cpm(D, normalized.lib.sizes = T, log = T)
+Normalized_Counts <- 2^Normalized_Counts
+Normalized_Counts <- as.data.frame(Normalized_Counts)
+colnames(Normalized_Counts) <- c("Zero_Norm","Four_Norm","Two_Norm")
+Normalized_Counts$ID <- rownames(Normalized_Counts)
+FilteredInteractions <- merge(FilteredInteractions, Normalized_Counts, by="ID")
+
+# Calculate log2 fold changes between all samples using an additional pseudo-count of 0.25
+FilteredInteractions$logFC_Four_Zero <- log2((FilteredInteractions$Four_Norm + 0.25) / (FilteredInteractions$Zero_Norm + 0.25))
+FilteredInteractions$logFC_Two_Zero <- log2((FilteredInteractions$Two_Norm + 0.25) / (FilteredInteractions$Zero_Norm + 0.25))
+FilteredInteractions$logFC_Two_Four <- log2((FilteredInteractions$Two_Norm + 0.25) / (FilteredInteractions$Four_Norm + 0.25))
+
+# Split the interactions into three groups depending on the maximal absolute log2 fold change
+Group1 <- FilteredInteractions[ abs(FilteredInteractions$logFC_Four_Zero) >= abs(FilteredInteractions$logFC_Two_Zero) & abs(FilteredInteractions$logFC_Four_Zero) >= abs(FilteredInteractions$logFC_Two_Four), ]
+Group2 <- FilteredInteractions[ abs(FilteredInteractions$logFC_Two_Zero) >= abs(FilteredInteractions$logFC_Four_Zero) & abs(FilteredInteractions$logFC_Two_Zero) >= abs(FilteredInteractions$logFC_Two_Four), ]
+Group3 <- FilteredInteractions[ abs(FilteredInteractions$logFC_Two_Four) >= abs(FilteredInteractions$logFC_Two_Zero) & abs(FilteredInteractions$logFC_Two_Four) >= abs(FilteredInteractions$logFC_Four_Zero), ]
+
+# Set the true log2 fold change into new column for each group with different maxima
+Group1$logFC_max <- Group1$logFC_Four_Zero
+Group2$logFC_max <- Group2$logFC_Two_Zero
+Group3$logFC_max <- Group3$logFC_Two_Four
+
+# Combine the 3 groups into a new data.frame
+Combined <- rbind(Group1, Group2, Group3)
+
+# Select one maximal fold change for entries with duplicated maximal absolute log2 fold changes
+set.seed(9999)
+Combined$Random <- sample(c(1:nrow(Combined)), nrow(Combined), replace = T)
+Combined <- Combined[ order(Combined$ID, Combined$Random),]
+Combined <- Combined[ duplicated(Combined$ID)==F,]
+
+# Merge maximal log2 fold change and the remaining data
+FilteredInteractions <- merge(FilteredInteractions, Combined[,c("ID","logFC_max")], by="ID", all.x=T)
+
+# Calculate the V values
+FilteredInteractions$V <- apply(FilteredInteractions[,c("Zero_Norm","Four_Norm","Two_Norm")],1,FUN="max")
+
+# Calculate the S values
+FilteredInteractions$Minimum <- apply(FilteredInteractions[,c("Zero_Norm","Four_Norm","Two_Norm")],1,FUN="min")
+FilteredInteractions$S <- 1 - (FilteredInteractions$Minimum / FilteredInteractions$V)
+
+# Calculate the H values 
+FilteredInteractions$H <- FilteredInteractions$Zero_Norm + FilteredInteractions$Four_Norm - FilteredInteractions$Two_Norm - FilteredInteractions$V
+FilteredInteractions$H <- FilteredInteractions$H / (FilteredInteractions$V * FilteredInteractions$S)
+FilteredInteractions$H <- FilteredInteractions$H + 2
+FilteredInteractions$H <- FilteredInteractions$H * sign(FilteredInteractions$Four_Norm - FilteredInteractions$Zero_Norm)
+FilteredInteractions$H <- FilteredInteractions$H * 60
+
+# Devide V into equally sized groups between 0 and 1
+Steps <- data.frame(Value = seq(1,0, by=-0.01), Step = 1 )
+for (i in 1:101) { Steps[i,2] <- ceiling(nrow(FilteredInteractions)/101) * i }
+FilteredInteractions <- FilteredInteractions[ order(-FilteredInteractions$V),]
+First <- 1
+for (i in 1:101) {
+Last <- Steps[i,2]
+FilteredInteractions[ c(First:Last),"V"] <- Steps[i,1]
+First <- Last + 1
+}
+
+# Devide S into equally sized groups between 0 and 1
+FilteredInteractions <- FilteredInteractions[ order(-FilteredInteractions$S),]
+First <- 1
+for (i in 1:101) {
+Last <- Steps[i,2]
+FilteredInteractions[ c(First:Last),"S"] <- Steps[i,1]
+First <- Last + 1
+}
+
+# Calculate the color for each interaction
+FilteredInteractions$color <- hsv(h = (FilteredInteractions$H + 180)/360, s = FilteredInteractions$S, v= FilteredInteractions$V, alpha = FilteredInteractions$V)
+
+# Merge gene information and collaps to keep only unique interaction-gene pairs
+FilteredInteractions_Genes <- merge(FilteredInteractions, Genes[,c("Fragment","Symbol")], by.x="baitID", by.y="Fragment")
+FilteredInteractions_Genes$Collaps <- paste(FilteredInteractions_Genes$ID, FilteredInteractions_Genes$Symbol, sep="-")
+FilteredInteractions_Genes <- FilteredInteractions_Genes[ duplicated(FilteredInteractions_Genes$Collaps)==F,]
+FilteredInteractions_Genes <- FilteredInteractions_Genes[,c(1:41)]
+
+# Keep only interactions within 100kb
+FilteredInteractions_Genes <- FilteredInteractions_Genes[ abs(FilteredInteractions_Genes$dist) <= 100000,]
+
+## Perform enrichment analysis
+Binsize <- 40
+WindowSize <- 1
+Length <- length(seq(-180,180-WindowSize,by=WindowSize))
+
+# Make data frames to capture the results
+Enrichment <- data.frame(matrix(ncol=Length, nrow=6))
+PBinom <- data.frame(matrix(ncol=Length, nrow=6))
+
+# Bin the hues (not crossing -180|180)
+HueLower <- seq(-180,180-Binsize,by=WindowSize)
+HueUpper <- seq(-180+Binsize,180,by=WindowSize)
+
+# Loop through all clusters
+for (cluster in 1:7) {
+	# Loop through hue ranges within each cluster that dont cross -180|180
+	for (hue in 1:Length) {
+		# Define the hue range
+		Lower <- HueLower[hue]
+		Upper <- HueUpper[hue]
+		# Get interactions within and outside of hue range
+		Within <- FilteredInteractions_Genes[ FilteredInteractions_Genes$H > Lower & FilteredInteractions_Genes$H < Upper,]
+		Outside <- FilteredInteractions_Genes[ FilteredInteractions_Genes$H < Lower | FilteredInteractions_Genes$H > Upper,]
+		# Get interactions inside and outside gene clusters
+		WithinOutside <- Within[ Within$Symbol %in% RNA[ abs(RNA$logFC_H4) <= log2(1.5) & abs(RNA$logFC_D2) <= log2(1.5) & RNA$Padj_Two >= 0.05 & RNA$Padj_Four >= 0.05,"Symbol"],]
+		OutsideOutside <- Outside[ Outside$Symbol %in% RNA[ abs(RNA$logFC_H4) <= log2(1.5) & abs(RNA$logFC_D2) <= log2(1.5) & RNA$Padj_Two >= 0.05 & RNA$Padj_Four >= 0.05,"Symbol"],]
+		Tmp <- RNA[ RNA$Cluster == cluster,]
+		WithinWithin <- Within[ Within$Symbol %in% Tmp[ , "Symbol"],]
+		OutsideWithin <- Outside[ Outside$Symbol %in% Tmp[ , "Symbol"],]
+		
+		# Impose rules about the number of interactions
+		# Save enrichment and pvalue
+		Enrichment[(cluster),hue] <- log2(((nrow(WithinWithin)+1)/(nrow(WithinWithin)+nrow(WithinOutside)+1))/((nrow(OutsideWithin)+1)/(nrow(OutsideWithin)+nrow(OutsideOutside)+1)))
+		PBinom[cluster,hue] <- binom.test(x = nrow(WithinWithin), n = nrow(WithinWithin)+nrow(WithinOutside), p = nrow(OutsideWithin)/(nrow(OutsideWithin)+nrow(OutsideOutside)))$p.value
+	}
+  # Process hues that cross the boundaries
+  for (q in 1:(Binsize-WindowSize)/WindowSize) {
+  hue <- length(HueLower) + q
+  Lower <- max(HueLower) + (q * WindowSize)
+	Upper <- -180 + (q * WindowSize)
+	Within <- FilteredInteractions_Genes[ FilteredInteractions_Genes$H > Lower | FilteredInteractions_Genes$H < Upper,]
+	Outside <- FilteredInteractions_Genes[ FilteredInteractions_Genes$H < Lower & FilteredInteractions_Genes$H > Upper,]
+	# Get interactions inside and outside gene clusters
+	WithinOutside <- Within[ Within$Symbol %in% RNA[ abs(RNA$logFC_H4) <= log2(1.5) & abs(RNA$logFC_D2) <= log2(1.5) & RNA$Padj_Two >= 0.05 & RNA$Padj_Four >= 0.05,"Symbol"],]
+		OutsideOutside <- Outside[ Outside$Symbol %in% RNA[ abs(RNA$logFC_H4) <= log2(1.5) & abs(RNA$logFC_D2) <= log2(1.5) & RNA$Padj_Two >= 0.05 & RNA$Padj_Four >= 0.05,"Symbol"],]
+		Tmp <- RNA[ RNA$Cluster == cluster,]
+		WithinWithin <- Within[ Within$Symbol %in% Tmp[ , "Symbol"],]
+		
+		OutsideWithin <- Outside[ Outside$Symbol %in% Tmp[ , "Symbol"],]
+		# Impose rules about the number of interactions
+		# Save enrichment and pvalue
+		Enrichment[(cluster),hue] <- log2(((nrow(WithinWithin)+1)/(nrow(WithinWithin)+nrow(WithinOutside)+1))/((nrow(OutsideWithin)+1)/(nrow(OutsideWithin)+nrow(OutsideOutside)+1)))
+				PBinom[cluster,hue] <- binom.test(x = nrow(WithinWithin), n = nrow(WithinWithin)+nrow(WithinOutside), p = nrow(OutsideWithin)/(nrow(OutsideWithin)+nrow(OutsideOutside)))$p.value
+	 }
+}
+
+# Perform FDR correction
+for (i in 1:7) {
+PBinom[i,] <- fdrtool(as.vector(as.matrix(PBinom[i,])), statistic = "pvalue", plot=F, verbose=F)$qval
+}
+
+# Plot the enrichments for cluster 4 to 7
 par(mfcol=c(1,4))
-color_vec=c("#0000CD30", "#00640030","#CD000030")
-for (i in c(4:7)) {
-tmp <- RNA[ RNA$Cluster == i, c("D0","H4","D2")]
-tmp <- log2(tmp)
-tmp <- t(scale(t(tmp)))
-plot(0,0,pch=' ', xlim=c(1,3), ylim=c(-2.5,2.5), xlab="", ylab="", yaxt="n", xaxt="n", main=paste("Cluster",i,sep=" "))
-mtext("Scaled expression", side=2, line=2.5, cex=1)
-mtext(c("Timepoint during differentiation"), side=1, line=2, cex=1)
-for(j in 1:dim(tmp)[1]){ lines(1:3, tmp[j,], col=color_vec[(i)]) }
-lines(1:3, apply(tmp,2, mean), lwd=2)
-axis(2, at=c(seq(-10,10,by=1)), lab=c(seq(-10,10,by=1)), cex.axis=1.3, las=2)
-axis(1, at=c(1:3), lab=c("D0", "4h", "D2"))
+Limits <- c(1,1,1,1,1,1,1)
+for (cluster in 4:7) {
+# Define axis limits
+Min=-1 * Limits[cluster]
+Max=Limits[cluster]
+	# Plot the areas with significant enrichments
+	circos.clear()
+	circos.par(gap.degree=0, start.degree=-90)
+	circos.initialize("A", xlim=c(-179,179))
+  # Plot the raw enrichments that dont cross
+	circos.trackPlotRegion("A", ylim=c(Min,Max), track.height=0.6, bg.border=NA)	
+	for (i in 1:length(HueLower)) {circos.rect(HueLower[i]+19.5, 0, HueUpper[i]-19.5, Enrichment[cluster,i], col = ifelse(PBinom[cluster,i] <= 0.1, ifelse(Enrichment[cluster,i] < 0, "darkred","darkgreen"),"grey"), border = NA) }
+	# Add the ones that cross in a loop except the one on both sides
+	 # Process hues that cross the boundaries
+  for (q in 1:(Binsize-WindowSize)/WindowSize) {
+  Lower <- max(HueLower) + (q * WindowSize)+19.5
+	Upper <- max(HueLower) + (q * WindowSize)+20.5
+  circos.rect(Lower, 0, Upper, Enrichment[cluster,(length(HueLower)+q)], col = ifelse(PBinom[cluster,(length(HueLower)+q)] <= 0.1,ifelse(Enrichment[cluster,(length(HueLower)+q)] < 0, "darkred","darkgreen"),"grey"), border = NA)
+	}
+  # Add lines
+	circos.lines(c(-180,180),c(0,0))
+	circos.lines(c(-180,180),c(Max,Max),lty=2)
+	circos.lines(c(-180,180),c(Min,Min),lty=2)
+	if ( cluster < 7 ){
+	  circos.lines(c(max(RNA[ RNA$Cluster == cluster, "H"])+10,max(RNA[ RNA$Cluster == cluster, "H"])+10),c(Min,Max), col="blue", lwd=2)
+	  circos.lines(c(min(RNA[ RNA$Cluster == cluster, "H"])-10,min(RNA[ RNA$Cluster == cluster, "H"])-10),c(Min,Max), col="blue", lwd=2)
+	} else {
+	  circos.lines(c(min(RNA[ RNA$Cluster == cluster & RNA$H > 0, "H"])-10,min(RNA[ RNA$Cluster == cluster & RNA$H > 0, "H"]))-10,c(Min,Max), col="blue", lwd=2)
+    circos.lines(c(max(RNA[ RNA$Cluster == cluster & RNA$H < 0, "H"])+10,max(RNA[ RNA$Cluster == cluster & RNA$H < 0, "H"])+10),c(Min,Max), col="blue", lwd=2)
+  }
+	# Add cluster indicator
+	circos.trackPlotRegion("A", ylim=c(0,1),track.height=0.2, bg.border=NA)
+	circos.text(0,-1.5,paste("Cluster",cluster,sep=" "))
 }
 ```
 
