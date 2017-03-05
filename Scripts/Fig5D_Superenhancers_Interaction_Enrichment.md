@@ -5,6 +5,7 @@ library(GenomicRanges)
 library(DESeq2)
 library(circlize)
 library(e1071)
+library(fdrtool)
 
 ## Process super-enhancer data
 # Import the data
@@ -401,7 +402,12 @@ for (consti in 1:5) {
 	ResultList[[consti]] <- Enrichment
 	print(consti)
 	}
-	
+
+# Perform FDR correction
+for (i in 1:5) {
+PBinom[i,] <- fdrtool(as.vector(as.matrix(PBinom[i,])), statistic = "pvalue", plot=F, verbose=F)$qval
+}
+
 ## Plot the enrichments in a loop
 par(mfcol=c(2,3))
 Limits <- c(1.75,2,1.5,1.5,3,1.5)
