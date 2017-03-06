@@ -2,6 +2,7 @@
 ## Load packages
 library(edgeR)
 library(org.Mm.eg.db)
+library(fdrtool)
 
 ## Process interactions
 # Import the interactions
