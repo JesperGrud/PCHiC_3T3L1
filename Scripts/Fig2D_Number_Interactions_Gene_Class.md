@@ -23,17 +23,17 @@ BtGene <- FilteredInteractions[ FilteredInteractions$oeID %in% Genes$Fragment,]
 BtGenome <- FilteredInteractions[ !(FilteredInteractions$oeID %in% Genes$Fragment),] 
 
 # Count the number of different types of interactions 
-CountPP <- nrow(BtGene) / nrow(FilteredInteractions) * 100
-CountPCG <- nrow(BtGenome[ BtGenome$baitID %in% Genes[ Genes$Type == "protein_coding","Fragment"],]) / nrow(FilteredInteractions) * 100
-CountNCG <- nrow(BtGenome[ BtGenome$baitID %in% Genes[ Genes$Type != "protein_coding","Fragment"],]) / nrow(FilteredInteractions) * 100
+CountPP <- nrow(BtGene) / 1000
+CountPCG <- nrow(BtGenome[ BtGenome$baitID %in% Genes[ Genes$Type == "protein_coding","Fragment"],]) / 1000
+CountNCG <- nrow(BtGenome[ BtGenome$baitID %in% Genes[ Genes$Type != "protein_coding","Fragment"],]) / 1000
 
 # Setup the data in a matrix for a stacked barplot
-Count <- matrix(c(CountPP,0,CountPCG,CountNCG), ncol=2)
+Count <- matrix(c(CountPP,CountPCG,CountNCG))
 
 # Make the plot
 par(mfcol=c(1,1))
-barplot(Count, col=c("green","red"), las = 1, ylim=c(0,100),
-	ylab="% interactions", names=c("P-P","P-G"))
+barplot(Count, col=c("grey","green","red"), las = 1, ylim=c(0,200),
+	ylab="Interactions (x 1000)", names=c("P-P","Coding","Non-coding"), beside=T)
 ```
 
 [Back to start](../README.md)<br>
