@@ -27,6 +27,6 @@ Main figures | Supplementary figures
 [Figure 7](Links/Figure7.md) | [Figure S7](Links/FigureS7.md)
 
 ### Links to relavant sites
-Full-length manuscript<br>
-NCBI GEO<br>
+[Full-length manuscript](http://www.sciencedirect.com/science/article/pii/S109727651730240X)<br>
+[NCBI GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE95533)<br>
 [Mandrup group website](http://sdu.dk/mandrupgroup)<br>
