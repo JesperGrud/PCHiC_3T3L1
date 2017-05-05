@@ -13,7 +13,7 @@ Interactions between transcriptional promoters and their distal regulatory eleme
 
 ### Scripts for reproduction of manuscript figures
 All figures in the manuscript can be reproduced from the R scripts within this repository.<br>
-To reproduce the figures locally, please clone this repository and download the data files here.<br>
+To reproduce the figures locally, please clone this repository and download the data files [here](http://bioinformatik.sdu.dk/solexa/webshare/JM/PCHIC_project/PCHiC_Data_Package.zip).<br>
 Each script in markdown format (.md) can be opened in RStudio and the code chunk within backticks can be executed.<br>
 
 Main figures | Supplementary figures
