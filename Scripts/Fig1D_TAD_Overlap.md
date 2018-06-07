@@ -1129,7 +1129,7 @@ rm(list=setdiff(ls(),c("Zero_TADs","Four_TADs","Two_TADs","ESC_TADs","Cortex_TAD
 
 ## Import data and convert to Z-scores
 # D0
-Zero <- read.table("C:/Users/jgsm/Desktop/D0.DI", quote="\"", comment.char="", skip=1)
+Zero <- read.table("Data/Interactions/TADs/D0.DI", quote="\"", comment.char="", skip=1)
 Mean <- mean(Zero$V4)
 SD <- sd(Zero$V4)
 Zero$V4 <- (Zero$V4 - Mean)/SD
@@ -1137,7 +1137,7 @@ rm(Mean)
 rm(SD)
 
 # H4
-Four <- read.table("C:/Users/jgsm/Desktop/H4.DI", quote="\"", comment.char="", skip=1)
+Four <- read.table("Data/Interactions/TADs/H4.DI", quote="\"", comment.char="", skip=1)
 Mean <- mean(Four$V4)
 SD <- sd(Four$V4)
 Four$V4 <- (Four$V4 - Mean)/SD
@@ -1145,7 +1145,7 @@ rm(Mean)
 rm(SD)
 
 # D2
-Two <- read.table("C:/Users/jgsm/Desktop/D2.DI", quote="\"", comment.char="", skip=1)
+Two <- read.table("Data/Interactions/TADs/D2.DI", quote="\"", comment.char="", skip=1)
 Mean <- mean(Two$V4)
 SD <- sd(Two$V4)
 Two$V4 <- (Two$V4 - Mean)/SD
@@ -1153,7 +1153,7 @@ rm(Mean)
 rm(SD)
 
 # ESC
-ESC <- read.table("C:/Users/jgsm/Desktop/ESC.DI", quote="\"", comment.char="", skip=1)
+ESC <- read.table("Data/Interactions/TADs/ESC.DI", quote="\"", comment.char="", skip=1)
 Mean <- mean(ESC$V4)
 SD <- sd(ESC$V4)
 ESC$V4 <- (ESC$V4 - Mean)/SD
@@ -1161,7 +1161,7 @@ rm(Mean)
 rm(SD)
 
 # Cortex
-Cortex <- read.table("C:/Users/jgsm/Desktop/Cortex.DI", quote="\"", comment.char="", skip=1)
+Cortex <- read.table("Data/Interactions/TADs/Cortex.DI", quote="\"", comment.char="", skip=1)
 Mean <- mean(Cortex$V4)
 SD <- sd(Cortex$V4)
 Cortex$V4 <- (Cortex$V4 - Mean)/SD
